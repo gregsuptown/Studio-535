@@ -8,7 +8,7 @@ services:
     runtime: node
     plan: free  # Change to 'starter' or higher for production
     region: oregon  # Choose closest to your users: oregon, frankfurt, singapore
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    buildCommand: npm install -g pnpm@10 && pnpm install --frozen-lockfile && pnpm build
     startCommand: node dist/index.js
     healthCheckPath: /api/health
     envVars:
@@ -68,7 +68,7 @@ services:
 
     # Auto-deploy from GitHub
     autoDeploy: true
-    branch: main  # Change to your production branch
+    branch: claude/code-review-improvements-011foez2e7B7VVxWdxGnWLDp  # Branch with deployment fixes
 
     # Health check configuration
     healthCheck:
