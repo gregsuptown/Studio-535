@@ -3,12 +3,13 @@ import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import Stripe from "stripe";
 import { ENV } from "./_core/env";
-import { getDb } from "./db";
+import { getDb, getProjectById } from "./db";
 import { orders, orderItems } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { generateInvoicePDF, generateInvoiceNumber, type InvoiceData } from "./invoice-generator";
 import { storagePut } from "./storage";
 import { notifyOwner } from "./_core/notification";
+import { projects } from "../drizzle/schema";
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
@@ -189,6 +190,22 @@ export const stripeRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // SECURITY FIX: Verify user has access to this project
+      const project = await getProjectById(input.projectId);
+      if (!project) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+      }
+
+      const isOwner = project.clientEmail === ctx.user.email;
+      const isAdmin = ctx.user.role === "admin";
+
+      if (!isOwner && !isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to create payments for this project"
+        });
+      }
+
       const depositAmount = Math.round(input.totalAmount * 0.1); // 10% deposit
       const db = await getDb();
       if (!db) {
@@ -270,6 +287,22 @@ export const stripeRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // SECURITY FIX: Verify user has access to this project
+      const project = await getProjectById(input.projectId);
+      if (!project) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+      }
+
+      const isOwner = project.clientEmail === ctx.user.email;
+      const isAdmin = ctx.user.role === "admin";
+
+      if (!isOwner && !isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You don't have permission to create payments for this project"
+        });
+      }
+
       const balanceAmount = Math.round(input.totalAmount * 0.9); // 90% balance
       const db = await getDb();
       if (!db) {

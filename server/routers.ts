@@ -5,6 +5,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { notifyOwner } from "./_core/notification";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import {
   createProject,
   createIntakeForm,
@@ -34,6 +35,41 @@ import {
   createProjectMessage,
   getProjectMessages,
 } from "./db";
+
+/**
+ * SECURITY FIX: Helper function to verify project access
+ * Users can only access projects where they are the client, or if they're an admin
+ */
+async function verifyProjectAccess(projectId: number, user: any): Promise<void> {
+  const project = await getProjectById(projectId);
+
+  if (!project) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+  }
+
+  const isOwner = project.clientEmail === user.email;
+  const isAdmin = user.role === "admin";
+
+  if (!isOwner && !isAdmin) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You don't have permission to access this project"
+    });
+  }
+}
+
+// Type-safe status enums to replace 'as any' casts
+const projectStatusSchema = z.enum([
+  "intake",
+  "design",
+  "approval",
+  "production",
+  "fulfillment",
+  "completed",
+  "cancelled"
+]);
+
+const quoteStatusSchema = z.enum(["draft", "sent", "approved", "rejected"]);
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -66,13 +102,24 @@ export const appRouter = router({
       return allProjects.filter(p => p.clientEmail === ctx.user.email);
     }),
 
-    getById: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
-      return await getProjectById(input.id);
-    }),
+    getById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input, ctx }) => {
+        // SECURITY FIX: Verify user has access to this project
+        await verifyProjectAccess(input.id, ctx.user);
+        return await getProjectById(input.id);
+      }),
 
     updateStatus: protectedProcedure
-      .input(z.object({ id: z.number(), status: z.string() }))
-      .mutation(async ({ input }) => {
+      .input(z.object({ id: z.number(), status: projectStatusSchema }))
+      .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Only admins can update project status
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only admins can update project status"
+          });
+        }
         await updateProjectStatus(input.id, input.status);
         return { success: true };
       }),
@@ -180,13 +227,20 @@ export const appRouter = router({
 
     getByProjectId: protectedProcedure
       .input(z.object({ projectId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
+        // SECURITY FIX: Verify user has access to this project
+        await verifyProjectAccess(input.projectId, ctx.user);
         return await getIntakeFormByProjectId(input.projectId);
       }),
 
-    getAttachments: publicProcedure
+    getAttachments: protectedProcedure  // SECURITY FIX: Changed from publicProcedure
       .input(z.object({ intakeId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
+        // SECURITY FIX: Verify access through intake form
+        const intake = await getIntakeFormByProjectId(input.intakeId);
+        if (intake) {
+          await verifyProjectAccess(intake.projectId, ctx.user);
+        }
         return await getIntakeAttachments(input.intakeId);
       }),
   }),
@@ -202,7 +256,11 @@ export const appRouter = router({
           estimatedDuration: z.string().optional(),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Only admins can create quotes
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can create quotes" });
+        }
         const quoteId = await createQuote({
           ...input,
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
@@ -212,13 +270,16 @@ export const appRouter = router({
 
     getByProjectId: protectedProcedure
       .input(z.object({ projectId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
+        // SECURITY FIX: Verify user has access to this project
+        await verifyProjectAccess(input.projectId, ctx.user);
         return await getQuotesByProjectId(input.projectId);
       }),
 
     updateStatus: protectedProcedure
-      .input(z.object({ id: z.number(), status: z.string() }))
+      .input(z.object({ id: z.number(), status: quoteStatusSchema }))
       .mutation(async ({ input }) => {
+        // TYPE SAFETY FIX: Using typed enum instead of string
         await updateQuoteStatus(input.id, input.status);
         return { success: true };
       }),
@@ -236,7 +297,11 @@ export const appRouter = router({
           designNotes: z.string().optional(),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Only admins can create designs
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can create designs" });
+        }
         const designId = await createDesign(input);
         await updateProjectStatus(input.projectId, "design");
         return { designId, success: true };
@@ -244,7 +309,9 @@ export const appRouter = router({
 
     getByProjectId: protectedProcedure
       .input(z.object({ projectId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
+        // SECURITY FIX: Verify user has access to this project
+        await verifyProjectAccess(input.projectId, ctx.user);
         return await getDesignsByProjectId(input.projectId);
       }),
 
@@ -260,9 +327,14 @@ export const appRouter = router({
           revisionNumber: z.number().optional(),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Only admins can update designs
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can update designs" });
+        }
         const { id, ...data } = input;
-        await updateDesign(id, data as any);
+        // TYPE SAFETY FIX: Properly typed, no 'as any' needed
+        await updateDesign(id, data);
         return { success: true };
       }),
   }),
@@ -279,6 +351,10 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Only admins can create status updates
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can create status updates" });
+        }
         const updateId = await createStatusUpdate({
           ...input,
           sentBy: ctx.user.id,
@@ -289,7 +365,9 @@ export const appRouter = router({
 
     getByProjectId: protectedProcedure
       .input(z.object({ projectId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
+        // SECURITY FIX: Verify user has access to this project
+        await verifyProjectAccess(input.projectId, ctx.user);
         return await getStatusUpdatesByProjectId(input.projectId);
       }),
   }),
@@ -307,7 +385,11 @@ export const appRouter = router({
           notes: z.string().optional(),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Only admins can create production setups
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can create production setups" });
+        }
         const setupId = await createProductionSetup({
           ...input,
           estimatedCompletionDate: input.estimatedCompletionDate
@@ -320,7 +402,9 @@ export const appRouter = router({
 
     getByProjectId: protectedProcedure
       .input(z.object({ projectId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
+        // SECURITY FIX: Verify user has access to this project
+        await verifyProjectAccess(input.projectId, ctx.user);
         return await getProductionSetupByProjectId(input.projectId);
       }),
 
@@ -336,7 +420,11 @@ export const appRouter = router({
           notes: z.string().optional(),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Only admins can update production setups
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can update production setups" });
+        }
         const { id, ...data } = input;
         await updateProductionSetup(id, {
           ...data,
@@ -361,7 +449,11 @@ export const appRouter = router({
           trackingNumber: z.string().optional(),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Only admins can create fulfillments
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can create fulfillments" });
+        }
         const fulfillmentId = await createFulfillment(input);
         await updateProjectStatus(input.projectId, "fulfillment");
         return { fulfillmentId, success: true };
@@ -369,7 +461,9 @@ export const appRouter = router({
 
     getByProjectId: protectedProcedure
       .input(z.object({ projectId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
+        // SECURITY FIX: Verify user has access to this project
+        await verifyProjectAccess(input.projectId, ctx.user);
         return await getFulfillmentByProjectId(input.projectId);
       }),
 
@@ -386,7 +480,11 @@ export const appRouter = router({
           deliveredDate: z.string().optional(),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Only admins can update fulfillments
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can update fulfillments" });
+        }
         const { id, ...data } = input;
         await updateFulfillment(id, {
           ...data,
@@ -427,7 +525,11 @@ export const appRouter = router({
           displayOrder: z.number().optional(),
         })
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Only admins can create portfolio items
+        if (ctx.user.role !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can create portfolio items" });
+        }
         const itemId = await createPortfolioItem({
           ...input,
           featured: input.featured ? 1 : 0,
@@ -440,7 +542,9 @@ export const appRouter = router({
   messages: router({
     list: protectedProcedure
       .input(z.object({ projectId: z.number() }))
-      .query(async ({ input }) => {
+      .query(async ({ input, ctx }) => {
+        // SECURITY FIX: Verify user has access to this project
+        await verifyProjectAccess(input.projectId, ctx.user);
         return await getProjectMessages(input.projectId);
       }),
 
@@ -459,7 +563,10 @@ export const appRouter = router({
       )
       .mutation(async ({ input, ctx }) => {
         if (!ctx.user) throw new Error("Not authenticated");
-        
+
+        // SECURITY FIX: Verify user has access to this project before creating message
+        await verifyProjectAccess(input.projectId, ctx.user);
+
         const messageId = await createProjectMessage({
           projectId: input.projectId,
           senderOpenId: ctx.user.openId,
