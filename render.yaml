@@ -1,0 +1,95 @@
+# Render Deployment Configuration for Studio 535
+# Documentation: https://render.com/docs/infrastructure-as-code
+
+services:
+  # Web Service (Backend + Frontend)
+  - type: web
+    name: studio535
+    runtime: node
+    plan: free  # Change to 'starter' or higher for production
+    region: oregon  # Choose closest to your users: oregon, frankfurt, singapore
+    buildCommand: npm install -g pnpm@10 && pnpm install --frozen-lockfile && pnpm build
+    startCommand: node dist/index.js
+    healthCheckPath: /api/health
+    envVars:
+      # Node Environment
+      - key: NODE_ENV
+        value: production
+
+      # Frontend URL (CRITICAL - will be: https://studio535.onrender.com)
+      - key: VITE_FRONTEND_URL
+        sync: false  # Set manually in Render dashboard
+
+      # Database (TiDB Cloud)
+      - key: DATABASE_URL
+        sync: false  # Sensitive - set in Render dashboard
+
+      # JWT Secret
+      - key: JWT_SECRET
+        generateValue: true  # Auto-generate secure secret
+
+      # Manus OAuth (Get from https://dev.manus.im)
+      - key: VITE_OAUTH_PORTAL_URL
+        value: https://oauth.manus.im
+      - key: VITE_APP_ID
+        sync: false  # Set manually in Render dashboard
+      - key: OWNER_OPEN_ID
+        sync: false  # Set manually in Render dashboard
+
+      # Stripe Payment Processing
+      - key: STRIPE_SECRET_KEY
+        sync: false  # Sensitive - set in Render dashboard
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false  # Configure after deployment
+
+      # AWS S3 or Cloudflare R2
+      - key: S3_BUCKET_NAME
+        sync: false  # Set manually
+      - key: S3_REGION
+        value: us-west-2
+      - key: S3_ACCESS_KEY_ID
+        sync: false  # Sensitive - set in Render dashboard
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false  # Sensitive - set in Render dashboard
+      - key: S3_ENDPOINT
+        sync: false  # Optional: for Cloudflare R2
+
+      # Email Configuration
+      - key: RESEND_API_KEY
+        sync: false  # Set manually in Render dashboard
+
+      # App Configuration
+      - key: VITE_APP_TITLE
+        value: Studio 535
+      - key: PORT
+        value: 10000  # Render's default port
+
+    # Auto-deploy from GitHub
+    autoDeploy: true
+    branch: claude/code-review-improvements-011foez2e7B7VVxWdxGnWLDp  # Branch with deployment fixes
+
+    # Health check configuration
+    healthCheck:
+      path: /api/health
+      interval: 30
+      timeout: 10
+      unhealthyThreshold: 3
+
+    # Resource limits (free tier)
+    disk:
+      name: studio535-disk
+      sizeGB: 1
+      mountPath: /tmp
+
+    # Build settings
+    buildFilter:
+      paths:
+        - server/**
+        - client/**
+        - shared/**
+        - package.json
+        - pnpm-lock.yaml
+        - tsconfig.json
+        - vite.config.ts
