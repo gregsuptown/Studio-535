@@ -11,10 +11,23 @@ import { storagePut } from "./storage";
 import { notifyOwner } from "./_core/notification";
 import { projects } from "../drizzle/schema";
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-10-29.clover",
-});
+// Lazy initialization of Stripe - only when needed
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    const apiKey = process.env.STRIPE_SECRET_KEY;
+    if (!apiKey) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Stripe is not configured. Please contact support."
+      });
+    }
+    _stripe = new Stripe(apiKey, {
+      apiVersion: "2025-10-29.clover",
+    });
+  }
+  return _stripe;
+}
 
 // Product catalog
 interface ProductDefinition {
@@ -143,7 +156,7 @@ export const stripeRouter = router({
       });
 
       // Create Stripe checkout session
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         payment_method_types: ["card"],
         line_items: [
           {
@@ -240,7 +253,7 @@ export const stripeRouter = router({
         total: depositAmount,
       });
 
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         payment_method_types: ["card"],
         line_items: [
           {
@@ -337,7 +350,7 @@ export const stripeRouter = router({
         total: balanceAmount,
       });
 
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         payment_method_types: ["card"],
         line_items: [
           {
