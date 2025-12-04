@@ -58,28 +58,35 @@ const validatePayload = (input: NotificationPayload): NotificationPayload => {
 };
 
 /**
- * Dispatches a project-owner notification through the Manus Notification Service.
- * Returns `true` if the request was accepted, `false` when the upstream service
- * cannot be reached (callers can fall back to email/slack). Validation errors
- * bubble up as TRPC errors so callers can fix the payload.
+ * Dispatches a notification to the project owner.
+ * 
+ * Currently uses the Forge API if configured. If not configured,
+ * logs the notification to console (can be extended to use email/Slack).
+ * 
+ * Returns `true` if handled successfully, `false` otherwise.
  */
 export async function notifyOwner(
   payload: NotificationPayload
 ): Promise<boolean> {
   const { title, content } = validatePayload(payload);
 
-  if (!ENV.forgeApiUrl) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Notification service URL is not configured.",
-    });
-  }
-
-  if (!ENV.forgeApiKey) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Notification service API key is not configured.",
-    });
+  // If Forge API is not configured, log to console
+  // You can extend this to send emails or Slack notifications
+  if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
+    console.log(`
+╔══════════════════════════════════════════════════════════════════╗
+║  📬 NOTIFICATION FOR OWNER                                        ║
+╠══════════════════════════════════════════════════════════════════╣
+║  ${title.substring(0, 60).padEnd(60)}  ║
+╠══════════════════════════════════════════════════════════════════╣
+${content.split('\n').map(line => `║  ${line.substring(0, 60).padEnd(60)}  ║`).join('\n')}
+╚══════════════════════════════════════════════════════════════════╝
+    `);
+    
+    // TODO: Implement email notification using your preferred email service
+    // Example: await sendEmail(ENV.ownerEmail, title, content);
+    
+    return true;
   }
 
   const endpoint = buildEndpointUrl(ENV.forgeApiUrl);

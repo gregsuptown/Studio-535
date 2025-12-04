@@ -2,20 +2,16 @@ import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-or
 
 /**
  * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
+ * Updated to use standard auth (replacing Manus OAuth)
  */
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
-  openId: varchar("openId", { length: 64 }).notNull().unique(),
+  /** Email address - unique identifier for the user */
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  /** Whether email has been verified */
+  emailVerified: int("emailVerified").default(0).notNull(),
   name: text("name"),
-  email: varchar("email", { length: 320 }),
-  loginMethod: varchar("loginMethod", { length: 64 }),
+  avatarUrl: varchar("avatarUrl", { length: 500 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -159,7 +155,6 @@ export type InsertFulfillment = typeof fulfillments.$inferInsert;
 
 /**
  * File attachments for intake forms
- * Stores references to files uploaded by clients (design files, reference images, etc.)
  */
 export const intakeAttachments = mysqlTable("intake_attachments", {
   id: int("id").autoincrement().primaryKey(),
@@ -167,7 +162,7 @@ export const intakeAttachments = mysqlTable("intake_attachments", {
   fileUrl: text("file_url").notNull(),
   fileKey: text("file_key").notNull(),
   fileName: varchar("file_name", { length: 255 }).notNull(),
-  fileSize: int("file_size").notNull(), // in bytes
+  fileSize: int("file_size").notNull(),
   mimeType: varchar("mime_type", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -184,7 +179,7 @@ export const portfolioItems = mysqlTable("portfolioItems", {
   description: text("description"),
   imageUrl: varchar("imageUrl", { length: 500 }).notNull(),
   category: varchar("category", { length: 100 }),
-  featured: int("featured").default(0).notNull(), // boolean as tinyint
+  featured: int("featured").default(0).notNull(),
   displayOrder: int("displayOrder").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -205,9 +200,9 @@ export const orders = mysqlTable("orders", {
   customerEmail: varchar("customer_email", { length: 320 }).notNull(),
   orderType: mysqlEnum("order_type", ["product", "deposit", "balance"]).notNull(),
   status: mysqlEnum("status", ["pending", "paid", "failed", "refunded"]).default("pending").notNull(),
-  subtotal: int("subtotal").notNull(), // in cents
-  tax: int("tax").default(0).notNull(), // in cents
-  total: int("total").notNull(), // in cents
+  subtotal: int("subtotal").notNull(),
+  tax: int("tax").default(0).notNull(),
+  total: int("total").notNull(),
   currency: varchar("currency", { length: 3 }).default("USD").notNull(),
   stripeSessionId: varchar("stripe_session_id", { length: 255 }),
   stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
@@ -230,8 +225,8 @@ export const orderItems = mysqlTable("order_items", {
   productName: varchar("product_name", { length: 255 }).notNull(),
   description: text("description"),
   quantity: int("quantity").default(1).notNull(),
-  unitPrice: int("unit_price").notNull(), // in cents
-  total: int("total").notNull(), // in cents
+  unitPrice: int("unit_price").notNull(),
+  total: int("total").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -244,7 +239,7 @@ export type InsertOrderItem = typeof orderItems.$inferInsert;
 export const projectMessages = mysqlTable("project_messages", {
   id: int("id").autoincrement().primaryKey(),
   projectId: int("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  senderOpenId: varchar("sender_open_id", { length: 64 }).notNull(),
+  senderId: int("sender_id").notNull(), // Changed from senderOpenId to use user ID
   senderName: varchar("sender_name", { length: 255 }).notNull(),
   senderRole: mysqlEnum("sender_role", ["admin", "user"]).notNull(),
   message: text("message").notNull(),
@@ -262,11 +257,11 @@ export const quoteTemplates = mysqlTable("quote_templates", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   category: varchar("category", { length: 100 }),
-  basePrice: int("base_price").notNull(), // in cents
+  basePrice: int("base_price").notNull(),
   laborHours: int("labor_hours").default(0),
-  hourlyRate: int("hourly_rate").default(0), // in cents
-  materialCost: int("material_cost").default(0), // in cents
-  markupPercentage: int("markup_percentage").default(0), // percentage as integer (e.g., 20 for 20%)
+  hourlyRate: int("hourly_rate").default(0),
+  materialCost: int("material_cost").default(0),
+  markupPercentage: int("markup_percentage").default(0),
   notes: text("notes"),
   isActive: int("is_active").default(1).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -291,3 +286,6 @@ export const messageAttachments = mysqlTable("message_attachments", {
 
 export type MessageAttachment = typeof messageAttachments.$inferSelect;
 export type InsertMessageAttachment = typeof messageAttachments.$inferInsert;
+
+// Export auth schema
+export * from "./auth-schema";

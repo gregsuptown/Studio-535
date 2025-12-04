@@ -1,4 +1,10 @@
-import { getLoginUrl } from "@/const";
+/**
+ * Studio 535 - Authentication Hook
+ * 
+ * React hook for authentication state management
+ * Works with Google OAuth, GitHub OAuth, and email/password
+ */
+
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
@@ -9,7 +15,7 @@ type UseAuthOptions = {
 };
 
 export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } =
+  const { redirectOnUnauthenticated = false, redirectPath = "/login" } =
     options ?? {};
   const utils = trpc.useUtils();
 
@@ -38,19 +44,18 @@ export function useAuth(options?: UseAuthOptions) {
     } finally {
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
+      // Refresh the page to clear any cached state
+      window.location.href = "/";
     }
   }, [logoutMutation, utils]);
 
   const state = useMemo(() => {
-    localStorage.setItem(
-      "manus-runtime-user-info",
-      JSON.stringify(meQuery.data)
-    );
     return {
       user: meQuery.data ?? null,
       loading: meQuery.isLoading || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
       isAuthenticated: Boolean(meQuery.data),
+      isAdmin: meQuery.data?.role === "admin",
     };
   }, [
     meQuery.data,
@@ -67,7 +72,7 @@ export function useAuth(options?: UseAuthOptions) {
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
 
-    window.location.href = redirectPath
+    window.location.href = redirectPath;
   }, [
     redirectOnUnauthenticated,
     redirectPath,
@@ -81,4 +86,30 @@ export function useAuth(options?: UseAuthOptions) {
     refresh: () => meQuery.refetch(),
     logout,
   };
+}
+
+/**
+ * Hook that requires authentication
+ * Redirects to login if not authenticated
+ */
+export function useRequireAuth() {
+  return useAuth({ redirectOnUnauthenticated: true });
+}
+
+/**
+ * Hook that requires admin role
+ * Redirects to home if not admin
+ */
+export function useRequireAdmin() {
+  const auth = useAuth({ redirectOnUnauthenticated: true });
+  
+  useEffect(() => {
+    if (auth.loading) return;
+    if (!auth.user) return; // Will redirect to login via useAuth
+    if (auth.user.role !== "admin") {
+      window.location.href = "/";
+    }
+  }, [auth.loading, auth.user]);
+  
+  return auth;
 }

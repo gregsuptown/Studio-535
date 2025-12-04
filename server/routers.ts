@@ -1,7 +1,6 @@
-import { COOKIE_NAME } from "@shared/const";
 import { stripeRouter } from "./stripe-router";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
+import { authRouter } from "./_core/auth-router";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { notifyOwner } from "./_core/notification";
 import { z } from "zod";
@@ -72,18 +71,8 @@ const projectStatusSchema = z.enum([
 const quoteStatusSchema = z.enum(["draft", "sent", "approved", "rejected"]);
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
-  auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
-    }),
-  }),
+  auth: authRouter,
 
   // ============= PROJECTS =============
   projects: router({
@@ -233,7 +222,7 @@ export const appRouter = router({
         return await getIntakeFormByProjectId(input.projectId);
       }),
 
-    getAttachments: protectedProcedure  // SECURITY FIX: Changed from publicProcedure
+    getAttachments: protectedProcedure
       .input(z.object({ intakeId: z.number() }))
       .query(async ({ input, ctx }) => {
         // SECURITY FIX: Verify access through intake form
@@ -279,7 +268,6 @@ export const appRouter = router({
     updateStatus: protectedProcedure
       .input(z.object({ id: z.number(), status: quoteStatusSchema }))
       .mutation(async ({ input }) => {
-        // TYPE SAFETY FIX: Using typed enum instead of string
         await updateQuoteStatus(input.id, input.status);
         return { success: true };
       }),
@@ -333,7 +321,6 @@ export const appRouter = router({
           throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can update designs" });
         }
         const { id, ...data } = input;
-        // TYPE SAFETY FIX: Properly typed, no 'as any' needed
         await updateDesign(id, data);
         return { success: true };
       }),
@@ -569,7 +556,7 @@ export const appRouter = router({
 
         const messageId = await createProjectMessage({
           projectId: input.projectId,
-          senderOpenId: ctx.user.openId,
+          senderId: ctx.user.id,
           senderName: ctx.user.name || "Unknown",
           senderRole: ctx.user.role || "user",
           message: input.message,
