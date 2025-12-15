@@ -179,8 +179,26 @@ export const portfolioItems = mysqlTable("portfolioItems", {
   description: text("description"),
   imageUrl: varchar("imageUrl", { length: 500 }).notNull(),
   category: varchar("category", { length: 100 }),
+  material: varchar("material", { length: 100 }),
   featured: int("featured").default(0).notNull(),
   displayOrder: int("displayOrder").default(0).notNull(),
+
+  // Before/after images for transformations
+  beforeImageUrl: varchar("beforeImageUrl", { length: 500 }),
+  afterImageUrl: varchar("afterImageUrl", { length: 500 }),
+
+  // Detailed case study fields
+  clientName: varchar("clientName", { length: 255 }),
+  projectDuration: varchar("projectDuration", { length: 100 }),
+  challenge: text("challenge"),
+  solution: text("solution"),
+  outcome: text("outcome"),
+
+  // Client testimonial
+  testimonialText: text("testimonialText"),
+  testimonialAuthor: varchar("testimonialAuthor", { length: 255 }),
+  testimonialRole: varchar("testimonialRole", { length: 255 }),
+
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

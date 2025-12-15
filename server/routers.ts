@@ -5,6 +5,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { notifyOwner } from "./_core/notification";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { storagePut } from "./storage";
 import {
   createProject,
   createIntakeForm,
@@ -33,6 +34,8 @@ import {
   getIntakeAttachments,
   createProjectMessage,
   getProjectMessages,
+  createMessageAttachment,
+  getMessageAttachments,
 } from "./db";
 
 /**
@@ -532,7 +535,46 @@ export const appRouter = router({
       .query(async ({ input, ctx }) => {
         // SECURITY FIX: Verify user has access to this project
         await verifyProjectAccess(input.projectId, ctx.user);
-        return await getProjectMessages(input.projectId);
+        const messages = await getProjectMessages(input.projectId);
+
+        // Fetch attachments for each message
+        const messagesWithAttachments = await Promise.all(
+          messages.map(async (message) => {
+            const attachments = await getMessageAttachments(message.id);
+            return { ...message, attachments };
+          })
+        );
+
+        return messagesWithAttachments;
+      }),
+
+    uploadFile: protectedProcedure
+      .input(
+        z.object({
+          fileName: z.string(),
+          fileData: z.string(), // base64 encoded
+          fileType: z.string(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user) throw new Error("Not authenticated");
+
+        // Decode base64 file data
+        const buffer = Buffer.from(input.fileData, 'base64');
+
+        // Generate unique file key
+        const timestamp = Date.now();
+        const fileKey = `message-attachments/${ctx.user.id}/${timestamp}-${input.fileName}`;
+
+        // Upload to storage
+        const { url } = await storagePut(fileKey, buffer, input.fileType);
+
+        return {
+          fileUrl: url,
+          fileKey,
+          fileName: input.fileName,
+          fileSize: buffer.length,
+        };
       }),
 
     create: protectedProcedure
@@ -562,11 +604,27 @@ export const appRouter = router({
           message: input.message,
         });
 
+        // Save attachments if provided
+        if (input.attachments && input.attachments.length > 0) {
+          for (const attachment of input.attachments) {
+            await createMessageAttachment({
+              messageId,
+              fileName: attachment.fileName,
+              fileUrl: attachment.fileUrl,
+              fileType: attachment.fileType,
+              fileSize: attachment.fileSize,
+            });
+          }
+        }
+
         // Notify owner of new client message if sender is not admin
+        const attachmentInfo = input.attachments && input.attachments.length > 0
+          ? `\n\n📎 ${input.attachments.length} file(s) attached`
+          : "";
         if (ctx.user.role !== "admin") {
           await notifyOwner({
             title: "New Client Message",
-            content: `${ctx.user.name} sent a message on project #${input.projectId}:\n\n${input.message}`,
+            content: `${ctx.user.name} sent a message on project #${input.projectId}:\n\n${input.message}${attachmentInfo}`,
           });
         }
 

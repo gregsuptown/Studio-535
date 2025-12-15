@@ -413,6 +413,24 @@ export const stripeRouter = router({
 
     return allOrders;
   }),
+
+  /**
+   * Get orders for a specific project
+   */
+  getOrdersByProjectId: protectedProcedure
+    .input(z.object({ projectId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return [];
+
+      const projectOrders = await db
+        .select()
+        .from(orders)
+        .where(eq(orders.projectId, input.projectId))
+        .orderBy(orders.createdAt);
+
+      return projectOrders;
+    }),
 });
 
 /**
