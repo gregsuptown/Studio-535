@@ -16,6 +16,9 @@ import ClientPortal from "./pages/ClientPortal";
 import ClientProjectDetail from "./pages/ClientProjectDetail";
 import QuoteBuilder from "./pages/QuoteBuilder";
 import Login from "./pages/Login";
+import Catalog from "./pages/Catalog";
+import CatalogCategory from "./pages/CatalogCategory";
+import CatalogProduct from "./pages/CatalogProduct";
 
 function Router() {
   return (
@@ -27,6 +30,9 @@ function Router() {
       <Route path="/portfolio" component={Portfolio} />
       <Route path="/portfolio/:id" component={CaseStudy} />
       <Route path="/process" component={Process} />
+      <Route path="/catalog" component={Catalog} />
+      <Route path="/catalog/product/:sku" component={CatalogProduct} />
+      <Route path="/catalog/:slug" component={CatalogCategory} />
       <Route path="/admin" component={Admin} />
       <Route path="/admin/project/:id" component={ProjectDetail} />
       <Route path="/admin/quote-builder" component={QuoteBuilder} />

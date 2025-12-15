@@ -305,5 +305,134 @@ export const messageAttachments = mysqlTable("message_attachments", {
 export type MessageAttachment = typeof messageAttachments.$inferSelect;
 export type InsertMessageAttachment = typeof messageAttachments.$inferInsert;
 
+// ==========================================
+// JDS CATALOG INTEGRATION (Priority 2)
+// ~6,000 curated products from JDS Industries
+// ==========================================
+
+/**
+ * Catalog Categories - Main product groupings
+ * Awards & Trophies, Laser Engraving Materials, Gift Products, Display & Cases, Signage Tools
+ */
+export const catalogCategories = mysqlTable("catalog_categories", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Unique slug for URL routing (e.g., "awards-trophies") */
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  /** Display name (e.g., "Awards & Trophies") */
+  name: varchar("name", { length: 255 }).notNull(),
+  /** Category description for SEO and display */
+  description: text("description"),
+  /** Estimated product count */
+  productCount: int("product_count").default(0).notNull(),
+  /** Design complexity level */
+  designLevel: mysqlEnum("design_level", ["low", "medium", "high"]).default("medium").notNull(),
+  /** Your service type for this category */
+  serviceType: varchar("service_type", { length: 255 }),
+  /** Category image URL */
+  imageUrl: varchar("image_url", { length: 500 }),
+  /** Sort order for display */
+  displayOrder: int("display_order").default(0).notNull(),
+  /** Whether to show on public catalog */
+  isActive: int("is_active").default(1).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CatalogCategory = typeof catalogCategories.$inferSelect;
+export type InsertCatalogCategory = typeof catalogCategories.$inferInsert;
+
+/**
+ * Catalog Subcategories - Second-level groupings within main categories
+ */
+export const catalogSubcategories = mysqlTable("catalog_subcategories", {
+  id: int("id").autoincrement().primaryKey(),
+  categoryId: int("category_id").notNull().references(() => catalogCategories.id, { onDelete: "cascade" }),
+  /** Original JDS class code (e.g., "AW001") */
+  jdsClassCode: varchar("jds_class_code", { length: 50 }),
+  slug: varchar("slug", { length: 100 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  productCount: int("product_count").default(0).notNull(),
+  imageUrl: varchar("image_url", { length: 500 }),
+  displayOrder: int("display_order").default(0).notNull(),
+  isActive: int("is_active").default(1).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type CatalogSubcategory = typeof catalogSubcategories.$inferSelect;
+export type InsertCatalogSubcategory = typeof catalogSubcategories.$inferInsert;
+
+/**
+ * Catalog Products - Individual products from JDS Industries
+ * ~6,000 curated items
+ */
+export const catalogProducts = mysqlTable("catalog_products", {
+  id: int("id").autoincrement().primaryKey(),
+  categoryId: int("category_id").notNull().references(() => catalogCategories.id),
+  subcategoryId: int("subcategory_id").references(() => catalogSubcategories.id),
+  
+  /** JDS product identifiers */
+  jdsSku: varchar("jds_sku", { length: 50 }).notNull().unique(),
+  jdsClassCode: varchar("jds_class_code", { length: 50 }),
+  
+  /** Product details */
+  name: varchar("name", { length: 500 }).notNull(),
+  description: text("description"),
+  descriptionLong: text("description_long"),
+  
+  /** Pricing (in cents) */
+  wholesalePrice: int("wholesale_price"),
+  retailPrice: int("retail_price"),
+  
+  /** Product specs */
+  dimensions: varchar("dimensions", { length: 255 }),
+  weight: varchar("weight", { length: 100 }),
+  material: varchar("material", { length: 255 }),
+  color: varchar("color", { length: 100 }),
+  
+  /** Images */
+  imageUrl: varchar("image_url", { length: 500 }),
+  thumbnailUrl: varchar("thumbnail_url", { length: 500 }),
+  additionalImages: text("additional_images"),
+  
+  /** Searchability */
+  keywords: text("keywords"),
+  searchText: text("search_text"),
+  
+  /** Inventory and availability */
+  inStock: int("in_stock").default(1).notNull(),
+  minOrderQty: int("min_order_qty").default(1).notNull(),
+  
+  /** Design work required */
+  designLevel: mysqlEnum("design_level", ["low", "medium", "high"]).default("medium").notNull(),
+  customizationOptions: text("customization_options"),
+  
+  /** Display settings */
+  isFeatured: int("is_featured").default(0).notNull(),
+  isActive: int("is_active").default(1).notNull(),
+  displayOrder: int("display_order").default(0).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CatalogProduct = typeof catalogProducts.$inferSelect;
+export type InsertCatalogProduct = typeof catalogProducts.$inferInsert;
+
+/**
+ * Product Pricing Tiers - Volume discounts and special pricing
+ */
+export const productPricingTiers = mysqlTable("product_pricing_tiers", {
+  id: int("id").autoincrement().primaryKey(),
+  productId: int("product_id").notNull().references(() => catalogProducts.id, { onDelete: "cascade" }),
+  minQuantity: int("min_quantity").notNull(),
+  maxQuantity: int("max_quantity"),
+  pricePerUnit: int("price_per_unit").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ProductPricingTier = typeof productPricingTiers.$inferSelect;
+export type InsertProductPricingTier = typeof productPricingTiers.$inferInsert;
+
 // Export auth schema
 export * from "./auth-schema";

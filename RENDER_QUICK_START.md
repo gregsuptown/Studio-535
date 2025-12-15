@@ -41,7 +41,7 @@ git push origin main
 
 1. **In Render Dashboard**:
    - Click **"New +"** → **"Web Service"**
-   - Select repository: `GregShugal/Studio-535`
+   - Select repository: `gregsuptown/Studio-535`
    - Click **"Connect"**
 
 2. **Configure Service**:

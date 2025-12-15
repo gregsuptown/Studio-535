@@ -43,6 +43,9 @@ export default function Home() {
             </a>
           </Link>
           <div className="flex items-center gap-6">
+            <Link href="/catalog">
+              <a className="text-sm font-medium hover:text-accent transition-colors">Catalog</a>
+            </Link>
             <Link href="/portfolio">
               <a className="text-sm font-medium hover:text-accent transition-colors">Portfolio</a>
             </Link>
@@ -197,6 +200,7 @@ export default function Home() {
             <div>
               <h4 className="font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm">
+                <li><Link href="/catalog" className="text-muted-foreground hover:text-accent transition-colors">Product Catalog</Link></li>
                 <li><Link href="/portfolio" className="text-muted-foreground hover:text-accent transition-colors">Portfolio</Link></li>
                 <li><Link href="/process" className="text-muted-foreground hover:text-accent transition-colors">Our Process</Link></li>
                 <li><Link href="/request-quote" className="text-muted-foreground hover:text-accent transition-colors">Request Quote</Link></li>

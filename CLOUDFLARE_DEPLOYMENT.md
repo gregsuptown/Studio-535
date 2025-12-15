@@ -145,7 +145,7 @@ Before you begin, make sure you have:
    - Navigate to "Pages"
    - Click "Create a project"
    - Connect to GitHub
-   - Select repository: `GregShugal/Studio-535`
+   - Select repository: `gregsuptown/Studio-535`
 
 2. **Configure Build Settings**
    - **Framework preset**: None

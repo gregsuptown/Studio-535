@@ -196,7 +196,7 @@ Created production-ready Vercel deployment configuration:
 
 **Deployment Instructions**:
 1. Go to [vercel.com](https://vercel.com)
-2. Import repository: `GregShugal/Studio-535`
+2. Import repository: `gregsuptown/Studio-535`
 3. Configure environment variables (see DEPLOYMENT_STATUS.md)
 4. Deploy!
 

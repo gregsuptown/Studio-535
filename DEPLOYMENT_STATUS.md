@@ -1,7 +1,7 @@
 # Studio 535 - Deployment Status & Configuration Checklist
 
 **Last Updated**: November 19, 2025
-**Repository**: `GregShugal/Studio535`
+**Repository**: `gregsuptown/Studio-535`
 **Current Branch**: `claude/code-review-improvements-011foez2e7B7VVxWdxGnWLDp`
 
 ---
@@ -39,7 +39,7 @@
 # Add to .env.example, .env.production, and DEPLOYMENT.md
 VITE_FRONTEND_URL="https://your-production-domain.com"
 # For Vercel: https://studio535.vercel.app
-# For GitHub Pages: https://gregshugal.github.io/Studio535
+# For GitHub Pages: https://gregsuptown.github.io/Studio535
 # For custom domain: https://studio535.com
 ```
 
@@ -128,7 +128,7 @@ AWS_SECRET_ACCESS_KEY="REPLACE_WITH_YOUR_AWS_SECRET_KEY"
 
 - [ ] **2. Import GitHub Repository**
   - Click "Add New Project"
-  - Import `GregShugal/Studio535`
+  - Import `gregsuptown/Studio-535`
   - Framework: Vite
   - Build Command: `pnpm build`
   - Output Directory: `dist`

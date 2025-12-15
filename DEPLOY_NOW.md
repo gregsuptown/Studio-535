@@ -21,7 +21,7 @@ Sign up or log in with GitHub
 1. Click **"New +"** (top right)
 2. Select **"Web Service"**
 3. Click **"Connect account"** if you haven't connected GitHub
-4. Find and select repository: **`Studio-535`** (or `GregShugal/Studio-535`)
+4. Find and select repository: **`Studio-535`** (or `gregsuptown/Studio-535`)
 5. Click **"Connect"**
 
 ---

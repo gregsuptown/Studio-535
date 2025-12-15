@@ -153,7 +153,7 @@ npm i -g vercel
 
 1. Go to [vercel.com](https://vercel.com) and sign in
 2. Click "Add New Project"
-3. Import your GitHub repository: `GregShugal/Studio535`
+3. Import your GitHub repository: `gregsuptown/Studio-535`
 4. Configure project settings:
    - **Framework Preset**: Vite
    - **Build Command**: `pnpm build` (or `npm run build`)

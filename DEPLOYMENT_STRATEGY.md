@@ -92,7 +92,7 @@ flyctl launch
 **Quick Start**:
 1. Go to https://railway.app
 2. Click "Start a New Project"
-3. Connect GitHub repository: `GregShugal/Studio-535`
+3. Connect GitHub repository: `gregsuptown/Studio-535`
 4. Railway auto-detects Node.js and configures build
 5. Add environment variables in GUI
 6. Deploy

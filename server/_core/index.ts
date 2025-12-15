@@ -31,6 +31,56 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
   
+  // ==========================================
+  // SECURITY HEADERS (Priority 3)
+  // ==========================================
+  app.use((_req, res, next) => {
+    // Prevent clickjacking
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    
+    // Prevent MIME type sniffing
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    
+    // XSS Protection (legacy browsers)
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    
+    // Referrer Policy
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    
+    // Permissions Policy (restrict browser features)
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(), payment=(self)"
+    );
+    
+    // Content Security Policy (adjust as needed)
+    if (process.env.NODE_ENV === "production") {
+      res.setHeader(
+        "Content-Security-Policy",
+        [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          "font-src 'self' https://fonts.gstatic.com",
+          "img-src 'self' data: https: blob:",
+          "connect-src 'self' https://api.stripe.com https://accounts.google.com",
+          "frame-src 'self' https://js.stripe.com https://accounts.google.com",
+          "object-src 'none'",
+          "base-uri 'self'",
+          "form-action 'self'",
+        ].join("; ")
+      );
+      
+      // HSTS (only in production with HTTPS)
+      res.setHeader(
+        "Strict-Transport-Security",
+        "max-age=31536000; includeSubDomains"
+      );
+    }
+    
+    next();
+  });
+  
   // Stripe webhook endpoint (MUST be before body parser to get raw body)
   app.post(
     "/api/stripe/webhook",

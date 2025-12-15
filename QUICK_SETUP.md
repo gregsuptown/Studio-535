@@ -16,7 +16,7 @@ Before deploying, you need to create the database tables. Run these commands loc
 
 ```bash
 # Clone the repository
-git clone https://github.com/GregShugal/Studio535.git
+git clone https://github.com/gregsuptown/Studio-535.git
 cd Studio535
 
 # Install dependencies
@@ -102,7 +102,7 @@ Choose one option:
 
 1. Go to [vercel.com](https://vercel.com) and sign in
 2. Click **"Add New Project"**
-3. Import: `GregShugal/Studio535`
+3. Import: `gregsuptown/Studio-535`
 4. Configure Build Settings:
    - Framework Preset: **Vite**
    - Build Command: `npm run build`
@@ -212,7 +212,7 @@ Railway is simpler for full-stack apps and includes database hosting:
 
 1. Go to [railway.app](https://railway.app)
 2. Click "New Project" → "Deploy from GitHub"
-3. Select `GregShugal/Studio535`
+3. Select `gregsuptown/Studio-535`
 4. Railway will auto-detect the Node.js app
 5. Add the same environment variables
 6. Railway provides a database option if you prefer

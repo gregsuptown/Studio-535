@@ -1,4 +1,5 @@
 import { stripeRouter } from "./stripe-router";
+import { catalogRouter } from "./catalog-router";
 import { systemRouter } from "./_core/systemRouter";
 import { authRouter } from "./_core/auth-router";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -493,6 +494,9 @@ export const appRouter = router({
 
   // ============= STRIPE PAYMENTS =============
   stripe: stripeRouter,
+
+  // ============= PRODUCT CATALOG =============
+  catalog: catalogRouter,
 
   // ============= PORTFOLIO =============
   portfolio: router({

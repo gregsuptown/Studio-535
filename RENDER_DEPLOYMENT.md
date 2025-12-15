@@ -10,7 +10,7 @@
 
 Before deploying to Render, ensure you have:
 
-- [ ] GitHub repository: `GregShugal/Studio-535`
+- [ ] GitHub repository: `gregsuptown/Studio-535`
 - [ ] Render account (Sign up at https://render.com - free tier available)
 - [ ] TiDB Cloud database running
 - [ ] Manus OAuth credentials
@@ -27,7 +27,7 @@ Before deploying to Render, ensure you have:
 2. **Click "New +"** in the top right
 3. **Select "Web Service"**
 4. **Connect GitHub Account** (if not already connected)
-5. **Select Repository**: `GregShugal/Studio-535`
+5. **Select Repository**: `gregsuptown/Studio-535`
 6. **Configure Service**:
    - **Name**: `studio535`
    - **Region**: `Oregon` (or closest to your users)
