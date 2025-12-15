@@ -33,11 +33,13 @@ export async function createContext(
       if (sessionCookie) {
         // Validate session with Lucia
         const { session, user: sessionUser } = await lucia.validateSession(sessionCookie);
-        
+
         if (session && sessionUser) {
           sessionId = session.id;
-          // Get full user data from database
-          user = await getUserById(sessionUser.id);
+          // Get full user data from database (convert string ID back to number)
+          const userId = parseInt(sessionUser.id, 10);
+          const dbUser = await getUserById(userId);
+          user = dbUser || null;
         }
       }
     }

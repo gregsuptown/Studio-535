@@ -6,11 +6,15 @@
  */
 
 import type { Express, Request, Response } from "express";
-import { parse as parseCookieHeader, serialize as serializeCookie } from "cookie";
 import { generateCodeVerifier, generateState } from "arctic";
 import { googleAuth, githubAuth, lucia } from "./lucia";
 import { createUser, getUserByEmail, getUserById, createOAuthAccount, getOAuthAccount, updateUserLastSignIn } from "../db";
 import { ENV } from "./env";
+
+// Import cookie functions using require (cookie package doesn't have proper ESM type exports)
+const cookieModule = require("cookie");
+const parseCookieHeader = cookieModule.parse;
+const serializeCookie = cookieModule.serialize;
 
 export function registerAuthRoutes(app: Express) {
   
@@ -140,11 +144,11 @@ export function registerAuthRoutes(app: Express) {
       }
       
       await updateUserLastSignIn(user.id);
-      
-      // Create session
-      const session = await lucia.createSession(user.id, {});
+
+      // Create session (convert numeric user ID to string for Lucia)
+      const session = await lucia.createSession(user.id.toString(), {});
       const sessionCookie = lucia.createSessionCookie(session.id);
-      
+
       res.setHeader("Set-Cookie", sessionCookie.serialize());
       res.redirect("/?login=success");
       
@@ -281,11 +285,11 @@ export function registerAuthRoutes(app: Express) {
       }
       
       await updateUserLastSignIn(user.id);
-      
-      // Create session
-      const session = await lucia.createSession(user.id, {});
+
+      // Create session (convert numeric user ID to string for Lucia)
+      const session = await lucia.createSession(user.id.toString(), {});
       const sessionCookie = lucia.createSessionCookie(session.id);
-      
+
       res.setHeader("Set-Cookie", sessionCookie.serialize());
       res.redirect("/?login=success");
       

@@ -13,7 +13,8 @@ import { users, sessions } from "../../drizzle/schema";
 import { ENV } from "./env";
 
 // Initialize Lucia adapter with Drizzle
-const adapter = new DrizzleMySQLAdapter(db, sessions, users);
+// Note: We use numeric IDs in the database but convert to strings for Lucia
+const adapter = new DrizzleMySQLAdapter(db, sessions, users as any);
 
 // Create Lucia instance
 export const lucia = new Lucia(adapter, {

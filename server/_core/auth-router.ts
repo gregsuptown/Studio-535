@@ -148,12 +148,12 @@ export const authRouter = router({
         
         // Update last sign in
         await updateUserLastSignIn(user.id);
-        
-        // Create session
-        const session = await lucia.createSession(user.id, {});
+
+        // Create session (convert numeric user ID to string for Lucia)
+        const session = await lucia.createSession(user.id.toString(), {});
         const sessionCookie = lucia.createSessionCookie(session.id);
         ctx.res.setHeader("Set-Cookie", sessionCookie.serialize());
-        
+
         return { success: true, user };
       } catch (error) {
         console.error("[Google OAuth] Error:", error);
@@ -266,11 +266,12 @@ export const authRouter = router({
         }
         
         await updateUserLastSignIn(user.id);
-        
-        const session = await lucia.createSession(user.id, {});
+
+        // Create session (convert numeric user ID to string for Lucia)
+        const session = await lucia.createSession(user.id.toString(), {});
         const sessionCookie = lucia.createSessionCookie(session.id);
         ctx.res.setHeader("Set-Cookie", sessionCookie.serialize());
-        
+
         return { success: true, user };
       } catch (error) {
         console.error("[GitHub OAuth] Error:", error);
@@ -316,12 +317,12 @@ export const authRouter = router({
       if (!user) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create user" });
       }
-      
-      // Create session
-      const session = await lucia.createSession(userId, {});
+
+      // Create session (convert numeric user ID to string for Lucia)
+      const session = await lucia.createSession(userId.toString(), {});
       const sessionCookie = lucia.createSessionCookie(session.id);
       ctx.res.setHeader("Set-Cookie", sessionCookie.serialize());
-      
+
       return { success: true, user };
     }),
 
@@ -351,11 +352,12 @@ export const authRouter = router({
       }
       
       await updateUserLastSignIn(user.id);
-      
-      const session = await lucia.createSession(user.id, {});
+
+      // Create session (convert numeric user ID to string for Lucia)
+      const session = await lucia.createSession(user.id.toString(), {});
       const sessionCookie = lucia.createSessionCookie(session.id);
       ctx.res.setHeader("Set-Cookie", sessionCookie.serialize());
-      
+
       return { success: true, user };
     }),
 

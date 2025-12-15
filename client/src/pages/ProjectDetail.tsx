@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { Link, useRoute } from "wouter";
-import { Loader2, ArrowLeft, Save, FileIcon } from "lucide-react";
+import { Loader2, ArrowLeft, Save, FileIcon, Download, Paperclip, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { getLoginUrl } from "@/const";
@@ -526,6 +526,11 @@ function PaymentSection({ projectId }: { projectId: number }) {
   const [balanceAmount, setBalanceAmount] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const { data: projectOrders = [], isLoading: ordersLoading } = trpc.stripe.getOrdersByProjectId.useQuery(
+    { projectId },
+    { enabled: projectId > 0 }
+  );
+
   const createDepositMutation = trpc.stripe.createDepositSession.useMutation({
     onSuccess: (data) => {
       if (data.url) {
@@ -578,6 +583,53 @@ function PaymentSection({ projectId }: { projectId: number }) {
 
   return (
     <div className="space-y-6">
+      {/* Previous Orders & Invoices */}
+      {ordersLoading ? (
+        <div className="flex justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-[#8B6F47]" />
+        </div>
+      ) : projectOrders.length > 0 ? (
+        <div className="border rounded-lg p-6 space-y-4">
+          <h3 className="text-lg font-semibold">Payment History & Invoices</h3>
+          <div className="space-y-3">
+            {projectOrders.map((order) => (
+              <div key={order.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <Badge variant={order.status === "paid" ? "default" : "secondary"} className="capitalize">
+                      {order.status}
+                    </Badge>
+                    <span className="font-medium capitalize">{order.orderType}</span>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="font-semibold">${(order.total / 100).toFixed(2)}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Order #{order.orderNumber} • Invoice #{order.invoiceNumber}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Created: {new Date(order.createdAt).toLocaleString()}
+                    {order.paidAt && ` • Paid: ${new Date(order.paidAt).toLocaleString()}`}
+                  </div>
+                </div>
+                {order.invoicePdfUrl && (
+                  <a
+                    href={order.invoicePdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-4"
+                  >
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Download className="h-4 w-4" />
+                      Download Invoice
+                    </Button>
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {/* Deposit Payment */}
       <div className="border rounded-lg p-6 space-y-4">
         <div>
@@ -685,6 +737,8 @@ function PaymentSection({ projectId }: { projectId: number }) {
 function AdminMessageThread({ projectId }: { projectId: number }) {
   const { user } = useAuth();
   const [newMessage, setNewMessage] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const utils = trpc.useUtils();
 
   const { data: messages = [], isLoading } = trpc.messages.list.useQuery(
@@ -692,9 +746,12 @@ function AdminMessageThread({ projectId }: { projectId: number }) {
     { enabled: !!user && projectId > 0, refetchInterval: 5000 }
   );
 
+  const uploadFile = trpc.messages.uploadFile.useMutation();
+
   const sendMessage = trpc.messages.create.useMutation({
     onSuccess: () => {
       setNewMessage("");
+      setSelectedFiles([]);
       utils.messages.list.invalidate({ projectId });
       toast.success("Message sent to client");
     },
@@ -703,9 +760,61 @@ function AdminMessageThread({ projectId }: { projectId: number }) {
     },
   });
 
-  const handleSend = () => {
-    if (!newMessage.trim()) return;
-    sendMessage.mutate({ projectId, message: newMessage });
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setSelectedFiles(prev => [...prev, ...files]);
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSend = async () => {
+    if (!newMessage.trim() && selectedFiles.length === 0) return;
+
+    setIsUploading(true);
+
+    try {
+      // Upload files first
+      const uploadedAttachments = [];
+      for (const file of selectedFiles) {
+        const reader = new FileReader();
+        const fileData = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => {
+            const base64 = reader.result as string;
+            const base64Data = base64.split(',')[1]; // Remove data:image/png;base64, prefix
+            resolve(base64Data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const result = await uploadFile.mutateAsync({
+          fileName: file.name,
+          fileData,
+          fileType: file.type,
+        });
+
+        uploadedAttachments.push({
+          fileName: result.fileName,
+          fileUrl: result.fileUrl,
+          fileType: file.type,
+          fileSize: result.fileSize,
+        });
+      }
+
+      // Send message with attachments
+      sendMessage.mutate({
+        projectId,
+        message: newMessage || "(File attachment)",
+        attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
+      });
+    } catch (error) {
+      toast.error("Failed to upload files");
+      console.error(error);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   if (isLoading) {
@@ -744,6 +853,27 @@ function AdminMessageThread({ projectId }: { projectId: number }) {
                   </span>
                 </div>
                 <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {msg.attachments.map((attachment: any, idx: number) => (
+                      <a
+                        key={idx}
+                        href={attachment.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-2 bg-black/10 rounded hover:bg-black/20 transition-colors"
+                      >
+                        <FileIcon className="h-3 w-3" />
+                        <span className="text-xs">{attachment.fileName}</span>
+                        {attachment.fileSize && (
+                          <span className="text-xs opacity-70 ml-auto">
+                            {(attachment.fileSize / 1024).toFixed(1)} KB
+                          </span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))
@@ -751,31 +881,72 @@ function AdminMessageThread({ projectId }: { projectId: number }) {
       </div>
 
       {/* New Message Input */}
-      <div className="flex gap-2">
-        <Textarea
-          placeholder="Type your message to the client..."
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          className="flex-1"
-          rows={3}
-        />
-        <Button
-          onClick={handleSend}
-          disabled={!newMessage.trim() || sendMessage.isPending}
-          className="bg-[#8B6F47] hover:bg-[#6B5437]"
-        >
-          {sendMessage.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Send"
-          )}
-        </Button>
+      <div className="space-y-2">
+        {/* Selected Files Preview */}
+        {selectedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {selectedFiles.map((file, index) => (
+              <div key={index} className="flex items-center gap-2 bg-muted px-3 py-1 rounded-full text-sm">
+                <FileIcon className="h-3 w-3" />
+                <span className="max-w-[150px] truncate">{file.name}</span>
+                <button
+                  onClick={() => handleRemoveFile(index)}
+                  className="hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <div className="flex-1 space-y-2">
+            <Textarea
+              placeholder="Type your message to the client..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !isUploading) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              className="flex-1"
+              rows={3}
+            />
+            <div className="flex gap-2">
+              <input
+                type="file"
+                id="file-upload"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => document.getElementById('file-upload')?.click()}
+                disabled={isUploading}
+              >
+                <Paperclip className="h-4 w-4 mr-2" />
+                Attach Files
+              </Button>
+            </div>
+          </div>
+          <Button
+            onClick={handleSend}
+            disabled={(!newMessage.trim() && selectedFiles.length === 0) || isUploading}
+            className="bg-[#8B6F47] hover:bg-[#6B5437] self-end"
+          >
+            {isUploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Send"
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

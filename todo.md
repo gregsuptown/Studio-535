@@ -103,7 +103,7 @@
 - [x] Send owner notification with invoice link (email to customer requires email service)
 - [x] Create complete Stripe payment system with checkout sessions
 - [x] Add webhook endpoint at /api/stripe/webhook
-- [ ] Add invoice download link in admin dashboard
+- [x] Add invoice download link in admin dashboard
 - [ ] Test invoice generation with test purchase
 - [x] Save checkpoint and push to GitHub
 
@@ -139,13 +139,13 @@
 - [ ] Save checkpoint
 
 ## Feature 3: Enhanced Portfolio & Case Studies
-- [ ] Update portfolio schema for case studies
-- [ ] Add before/after image support
-- [ ] Create detailed project write-up fields
-- [ ] Add client testimonials to portfolio items
-- [ ] Implement category/material filtering
-- [ ] Add social media sharing buttons
-- [ ] Create case study detail page
+- [x] Update portfolio schema for case studies
+- [x] Add before/after image support
+- [x] Create detailed project write-up fields
+- [x] Add client testimonials to portfolio items
+- [x] Implement category/material filtering
+- [x] Add social media sharing buttons
+- [x] Create case study detail page
 - [ ] Test portfolio filtering and display
 - [ ] Save checkpoint
 
@@ -232,20 +232,13 @@
 - [x] Test quote builder functionality
 - [x] Save checkpoint
 
-## Feature 3: File Attachments in Messages (In Progress)
+## Feature 3: File Attachments in Messages
 - [x] Add message_attachments table to database
 - [x] Update message creation schema to handle file uploads
-- [ ] Add S3 file upload integration
-- [ ] Add file upload UI to message input
-- [ ] Display attachments in message thread
-- [ ] Add file download functionality
-- [ ] Support images, PDFs, and common file types
+- [x] Add S3 file upload integration
+- [x] Add file upload UI to message input
+- [x] Display attachments in message thread
+- [x] Add file download functionality
+- [x] Support images, PDFs, and common file types
 - [ ] Test file attachments and save checkpoint
 
-## Feature 4: Read Receipts & Typing Indicators
-- [ ] Add read_at timestamp to messages table
-- [ ] Create typing indicator real-time system
-- [ ] Add read receipt tracking to backend
-- [ ] Display read receipts in message UI
-- [ ] Show typing indicator when user is typing
-- [ ] Test real-time features and save checkpoint

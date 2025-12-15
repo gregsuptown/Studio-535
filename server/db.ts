@@ -7,6 +7,8 @@ import {
   InsertIntakeAttachment,
   projectMessages,
   InsertProjectMessage,
+  messageAttachments,
+  InsertMessageAttachment,
   designs,
   fulfillments,
   intakeForms,
@@ -345,4 +347,17 @@ export async function getProjectMessages(projectId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(projectMessages).where(eq(projectMessages.projectId, projectId)).orderBy(asc(projectMessages.createdAt));
+}
+
+export async function createMessageAttachment(data: InsertMessageAttachment) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(messageAttachments).values(data);
+  return result[0].insertId;
+}
+
+export async function getMessageAttachments(messageId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(messageAttachments).where(eq(messageAttachments.messageId, messageId));
 }

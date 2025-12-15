@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import RequestQuote from "./pages/RequestQuote";
 import Portfolio from "./pages/Portfolio";
+import CaseStudy from "./pages/CaseStudy";
 import Process from "./pages/Process";
 import Admin from "./pages/Admin";
 import ProjectDetail from "./pages/ProjectDetail";
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/request-quote" component={RequestQuote} />
       <Route path="/portfolio" component={Portfolio} />
+      <Route path="/portfolio/:id" component={CaseStudy} />
       <Route path="/process" component={Process} />
       <Route path="/admin" component={Admin} />
       <Route path="/admin/project/:id" component={ProjectDetail} />

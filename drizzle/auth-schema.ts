@@ -9,10 +9,11 @@ import { mysqlTable, varchar, text, int, timestamp, bigint } from "drizzle-orm/m
 
 /**
  * Sessions table - Active user sessions (Lucia Auth)
+ * Note: userId is varchar to match Lucia's string ID requirement, but we convert to/from int
  */
 export const sessions = mysqlTable("sessions", {
   id: varchar("id", { length: 255 }).primaryKey(),
-  userId: int("user_id").notNull(),
+  userId: varchar("user_id", { length: 21 }).notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
