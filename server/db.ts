@@ -32,25 +32,30 @@ import {
 } from "../drizzle/schema";
 import { and } from "drizzle-orm";
 
-let _db: ReturnType<typeof drizzle> | null = null;
+// Create connection pool with SSL for TiDB Cloud
+console.log("Initializing database connection...");
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    // Create connection pool with SSL for TiDB Cloud
-    const poolConnection = mysql.createPool({
-      uri: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: true
-      }
-    });
-    _db = drizzle(poolConnection);
-  }
-  return _db;
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is not defined");
 }
 
+const poolConnection = mysql.createPool({
+  uri: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: true
+  }
+});
+
+console.log("Database connection pool created");
+
 // Export db for Lucia adapter
-export const db = _db!;
+// We cast to any to avoid complex type mismatch issues between different drizzle/mysql2 versions
+export const db = drizzle(poolConnection) as any;
+
+// Helper to ensure DB is available (kept for backward compatibility, but now just returns db)
+export async function getDb() {
+  return db;
+}
 
 // ============= USER AUTHENTICATION =============
 
@@ -230,6 +235,13 @@ export async function getQuotesByProjectId(projectId: number) {
   return db.select().from(quotes).where(eq(quotes.projectId, projectId)).orderBy(desc(quotes.createdAt));
 }
 
+export async function getQuoteById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(quotes).where(eq(quotes.id, id)).limit(1);
+  return result[0] || null;
+}
+
 export async function updateQuoteStatus(id: number, status: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -243,6 +255,13 @@ export async function createDesign(data: InsertDesign) {
   if (!db) throw new Error("Database not available");
   const result = await db.insert(designs).values(data);
   return result[0].insertId;
+}
+
+export async function getDesignById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(designs).where(eq(designs.id, id)).limit(1);
+  return result[0];
 }
 
 export async function getDesignsByProjectId(projectId: number) {

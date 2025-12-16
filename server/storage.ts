@@ -5,6 +5,71 @@ import { ENV } from './_core/env';
 
 type StorageConfig = { baseUrl: string; apiKey: string };
 
+// File upload validation constants
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_MIME_TYPES = [
+  // Images
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  // Documents
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  // Design files
+  'application/postscript', // .ai
+  'image/vnd.adobe.photoshop', // .psd
+];
+
+/**
+ * SECURITY: Validates file uploads
+ * Checks file size and content type against whitelist
+ */
+function validateFileUpload(
+  data: Buffer | Uint8Array | string,
+  contentType: string,
+  fileName: string
+): void {
+  // Check file size
+  const size = typeof data === 'string' ? Buffer.byteLength(data) : data.byteLength;
+  if (size > MAX_FILE_SIZE) {
+    throw new Error(`File too large: ${(size / 1024 / 1024).toFixed(2)}MB exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`);
+  }
+
+  // Check MIME type
+  if (!ALLOWED_MIME_TYPES.includes(contentType)) {
+    throw new Error(`Invalid file type: ${contentType} not allowed`);
+  }
+
+  // Check file extension matches content type
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  const expectedExtensions: Record<string, string[]> = {
+    'image/jpeg': ['jpg', 'jpeg'],
+    'image/jpg': ['jpg', 'jpeg'],
+    'image/png': ['png'],
+    'image/gif': ['gif'],
+    'image/webp': ['webp'],
+    'image/svg+xml': ['svg'],
+    'application/pdf': ['pdf'],
+    'application/msword': ['doc'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+    'application/vnd.ms-excel': ['xls'],
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
+    'application/postscript': ['ai', 'eps'],
+    'image/vnd.adobe.photoshop': ['psd'],
+  };
+
+  const validExtensions = expectedExtensions[contentType];
+  if (validExtensions && extension && !validExtensions.includes(extension)) {
+    throw new Error(`File extension .${extension} does not match content type ${contentType}`);
+  }
+}
+
 function getStorageConfig(): StorageConfig {
   const baseUrl = ENV.forgeApiUrl;
   const apiKey = ENV.forgeApiKey;
@@ -74,8 +139,13 @@ export async function storagePut(
 ): Promise<{ key: string; url: string }> {
   const { baseUrl, apiKey } = getStorageConfig();
   const key = normalizeKey(relKey);
+  const fileName = key.split("/").pop() ?? key;
+
+  // SECURITY: Validate file upload before processing
+  validateFileUpload(data, contentType, fileName);
+
   const uploadUrl = buildUploadUrl(baseUrl, key);
-  const formData = toFormData(data, contentType, key.split("/").pop() ?? key);
+  const formData = toFormData(data, contentType, fileName);
   const response = await fetch(uploadUrl, {
     method: "POST",
     headers: buildAuthHeaders(apiKey),

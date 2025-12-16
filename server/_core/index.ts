@@ -1,7 +1,9 @@
 import "dotenv/config";
+console.log("Starting server application...");
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import rateLimit from "express-rate-limit";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -80,7 +82,37 @@ async function startServer() {
     
     next();
   });
-  
+
+  // ==========================================
+  // RATE LIMITING (SECURITY FIX)
+  // ==========================================
+
+  // General API rate limiter - 100 requests per 15 minutes per IP
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per window
+    message: "Too many requests from this IP, please try again later.",
+    standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
+    legacyHeaders: false, // Disable `X-RateLimit-*` headers
+    // Skip rate limiting for health checks
+    skip: (req) => req.path === "/api/health",
+  });
+
+  // Strict rate limiter for authentication endpoints - 5 requests per 15 minutes
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // Limit each IP to 5 login attempts per window
+    message: "Too many authentication attempts, please try again later.",
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Apply general rate limiting to all API routes
+  app.use("/api/", apiLimiter);
+
+  // Apply strict rate limiting to authentication routes
+  app.use("/api/auth/", authLimiter);
+
   // Stripe webhook endpoint (MUST be before body parser to get raw body)
   app.post(
     "/api/stripe/webhook",
@@ -119,16 +151,26 @@ async function startServer() {
     serveStatic(app);
   }
 
-  const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
+  const port = parseInt(process.env.PORT || "3000");
 
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+  if (process.env.NODE_ENV === "production") {
+    server.listen(port, "0.0.0.0", () => {
+      console.log(`Server running on http://0.0.0.0:${port}/`);
+    });
+  } else {
+    const availablePort = await findAvailablePort(port);
+
+    if (availablePort !== port) {
+      console.log(`Port ${port} is busy, using port ${availablePort} instead`);
+    }
+
+    server.listen(availablePort, () => {
+      console.log(`Server running on http://localhost:${availablePort}/`);
+    });
   }
-
-  server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
-  });
 }
 
-startServer().catch(console.error);
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});

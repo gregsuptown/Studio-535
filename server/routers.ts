@@ -21,9 +21,11 @@ import {
   updateProjectStatus,
   getIntakeFormByProjectId,
   getQuotesByProjectId,
+  getQuoteById,
   updateQuoteStatus,
   getDesignsByProjectId,
   updateDesign,
+  getDesignById, // Added
   getStatusUpdatesByProjectId,
   getProductionSetupByProjectId,
   updateProductionSetup,
@@ -86,13 +88,13 @@ export const appRouter = router({
       if (ctx.user.role === "admin") {
         return allProjects;
       }
-      return allProjects.filter(p => p.clientEmail === ctx.user.email);
+      return allProjects.filter((p: any) => p.clientEmail === ctx.user.email);
     }),
 
     getMyProjects: protectedProcedure.query(async ({ ctx }) => {
       // Get projects for the current logged-in user
       const allProjects = await getAllProjects();
-      return allProjects.filter(p => p.clientEmail === ctx.user.email);
+      return allProjects.filter((p: any) => p.clientEmail === ctx.user.email);
     }),
 
     getById: protectedProcedure
@@ -271,7 +273,14 @@ export const appRouter = router({
 
     updateStatus: protectedProcedure
       .input(z.object({ id: z.number(), status: quoteStatusSchema }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        // SECURITY FIX: Verify user has access to the project this quote belongs to
+        const quote = await getQuoteById(input.id);
+        if (!quote) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Quote not found" });
+        }
+        await verifyProjectAccess(quote.projectId, ctx.user);
+
         await updateQuoteStatus(input.id, input.status);
         return { success: true };
       }),
@@ -326,6 +335,38 @@ export const appRouter = router({
         }
         const { id, ...data } = input;
         await updateDesign(id, data);
+        return { success: true };
+      }),
+
+    clientReview: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          status: z.enum(["approved", "revision_requested"]),
+          notes: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const design = await getDesignById(input.id);
+        if (!design) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Design not found" });
+        }
+
+        // Verify user has access to the project this design belongs to
+        await verifyProjectAccess(design.projectId, ctx.user);
+
+        await updateDesign(input.id, {
+          status: input.status,
+          designNotes: input.notes, 
+        });
+
+        // Notify owner
+        const project = await getProjectById(design.projectId);
+        await notifyOwner({
+          title: `🎨 Design ${input.status === 'approved' ? 'Approved' : 'Revision Requested'}`,
+          content: `Client ${ctx.user.name} has ${input.status} the design for project "${project?.projectTitle}".\n\nNotes: ${input.notes || "None"}`,
+        });
+
         return { success: true };
       }),
   }),
